@@ -5,12 +5,13 @@ import com.amigoscode.exception.RequestValidationException;
 import com.amigoscode.exception.ResourceNotFoundException;
 import com.amigoscode.s3.S3Buckets;
 import com.amigoscode.s3.S3Service;
-
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,10 +31,10 @@ public class CustomerService {
                            S3Service s3Service,
                            S3Buckets s3Buckets) {
         this.customerDao = customerDao;
-        this.s3Service = s3Service;
         this.customerDTOMapper = customerDTOMapper;
         this.passwordEncoder = passwordEncoder;
-        this.s3Buckets = new S3Buckets();
+        this.s3Service = s3Service;
+        this.s3Buckets = s3Buckets;
     }
 
     public List<CustomerDTO> getAllCustomers() {
@@ -72,17 +73,16 @@ public class CustomerService {
     }
 
     public void deleteCustomerById(Integer customerId) {
-        checkIfCustomerExists(customerId);
+        checkIfCustomerExistsOrThrow(customerId);
+        customerDao.deleteCustomerById(customerId);
     }
 
-    private void checkIfCustomerExists(Integer customerId) {
+    private void checkIfCustomerExistsOrThrow(Integer customerId) {
         if (!customerDao.existsCustomerById(customerId)) {
             throw new ResourceNotFoundException(
                     "customer with id [%s] not found".formatted(customerId)
             );
         }
-
-        customerDao.deleteCustomerById(customerId);
     }
 
     public void updateCustomer(Integer customerId,
@@ -122,38 +122,38 @@ public class CustomerService {
         customerDao.updateCustomer(customer);
     }
 
-    public void uploadCustomerProfileImage(Integer customerId, MultipartFile file) {
-        checkIfCustomerExists(customerId);
-         String profileImageId = UUID.randomUUID().toString();
+    public void uploadCustomerProfileImage(Integer customerId,
+                                           MultipartFile file) {
+        checkIfCustomerExistsOrThrow(customerId);
+        String profileImageId = UUID.randomUUID().toString();
         try {
-            s3Service.putObject(s3Buckets.getCustomer(), "profile-images/%s/%s".formatted(customerId, profileImageId), file.getBytes());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "failed to upload profile image for customer with id [%s]".formatted(customerId), e
+            s3Service.putObject(
+                    s3Buckets.getCustomer(),
+                    "profile-images/%s/%s".formatted(customerId, profileImageId),
+                    file.getBytes()
             );
+        } catch (IOException e) {
+            throw new RuntimeException("failed to upload profile image", e);
         }
-        // TODO: Store Image
-        customer.setProfileImageUrl("profile-images/%s/%s".formatted(customerId, profileImageId));
-
+        customerDao.updateCustomerProfileImageId(profileImageId, customerId);
     }
 
-    public byte[] getCustomerProfileImage(Integer customerId) {
-        // Validate customer exists
+    public byte[] getCustomerProfileImage(Integer customerId) throws IOException {
         var customer = customerDao.selectCustomerById(customerId)
                 .map(customerDTOMapper)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "customer with id [%s] not found".formatted(customerId)
                 ));
 
-        // TODO: check if profile image is empty or null
-        var profileImageUrl = customer.getProfileImageUrl();
+        if (StringUtils.isBlank(customer.profileImageId())) {
+            throw new ResourceNotFoundException(
+                    "customer with id [%s] profile image not found".formatted(customerId));
+        }
 
-        byte[] profileImage =  s3Service.getObject(
-            s3Buckets.getCustomer(),
-            "profile-images/%s/%s".formatted(customerId, profileImageUrl)
+        byte[] profileImage = s3Service.getObject(
+                s3Buckets.getCustomer(),
+                "profile-images/%s/%s".formatted(customerId, customer.profileImageId())
         );
-
         return profileImage;
     }
 }
-
