@@ -14,6 +14,7 @@ import {
     Text,
     useColorModeValue, useDisclosure,
 } from '@chakra-ui/react';
+import {customerProfilePictureUrl} from "../../services/client.js";
 
 import {useRef} from 'react'
 import {deleteCustomer} from "../../services/client.js";
@@ -49,7 +50,7 @@ export default function CardWithImage({id, name, email, age, gender, imageNumber
                     <Avatar
                         size={'xl'}
                         src={
-                            `https://randomuser.me/api/portraits/${randomUserGender}/${imageNumber}.jpg`
+                           customerProfilePictureUrl(id)
                         }
                         alt={'Author'}
                         css={{

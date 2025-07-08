@@ -11,11 +11,10 @@ cors:
 
 aws:
   region: us-east-1
+  s3:
+    buckets:
+      customer: fs-agoel225-customer-test
 
-s3:
-  buckets:
-    customer: fs-agoel225-customer-test 
-  
 management:
   endpoints:
     web:
