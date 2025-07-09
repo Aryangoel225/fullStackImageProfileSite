@@ -1,13 +1,10 @@
 import {Form, Formik, useField} from 'formik';
 import * as Yup from 'yup';
-import {Alert, AlertIcon, Box, Button, FormLabel, Input, Select, Stack} from "@chakra-ui/react";
-import {saveCustomer, updateCustomer, uploadCustomerProfilePicture} from "../../services/client.js";
-import {successNotification, errorNotification} from "../../services/notification.js";
+import {Alert, AlertIcon, Box, Button, FormLabel, Image, Input, Stack, VStack} from "@chakra-ui/react";
+import {customerProfilePictureUrl, updateCustomer, uploadCustomerProfilePicture} from "../../services/client.js";
+import {errorNotification, successNotification} from "../../services/notification.js";
 import {useCallback} from "react";
 import {useDropzone} from "react-dropzone";
-import {VStack} from "@chakra-ui/react";
-import { Image } from "@chakra-ui/react";
-import {customerProfilePictureUrl} from "../../services/client.js";
 
 const MyTextInput = ({label, ...props}) => {
     // useField() returns [formik.getFieldProps(), formik.getFieldMeta()]
@@ -28,57 +25,57 @@ const MyTextInput = ({label, ...props}) => {
     );
 };
 
-const MyDropzone = ({customerId}) => {
-  const onDrop = useCallback(acceptedFiles => {
-    const formData = new FormData();
-    formData.append("file", acceptedFiles[0]);
-    uploadCustomerProfilePicture(customerId, formData).then(() => {
-        successNotification(
-            "Profile picture uploaded",
-            "Your profile picture was successfully uploaded"
-        )
-    }).catch(err => {
-        errorNotification(
-                err.code,
-                err.response.data.message
-            )
+const MyDropzone = ({ customerId, fetchCustomers }) => {
+    const onDrop = useCallback(acceptedFiles => {
+        const formData = new FormData();
+        formData.append("file", acceptedFiles[0])
+
+        uploadCustomerProfilePicture(
+            customerId,
+            formData
+        ).then(() => {
+            successNotification("Success", "Profile picture uploaded")
+            fetchCustomers()
+        }).catch(() => {
+            errorNotification("Error", "Profile picture failed upload")
         })
-  }, [])
+    }, [])
+    const {getRootProps, getInputProps, isDragActive} = useDropzone({onDrop})
 
-  const {getRootProps, getInputProps, isDragActive} = useDropzone({onDrop})
-
-  return (
-    <Box {...getRootProps()}
-         width={"100%"}
-         textAlign={"center"}
-         border={"2px dashed #ccc"}
-         padding={6}
-         rounded={"md"}
-         borderRadius={"3xl"}>
-      <input {...getInputProps()} />
-      {
-        isDragActive ?
-          <p>Drop the picture here ...</p> :
-          <p>Drag 'n' drop a picture here, or click to select picture</p>
-      }
-    </Box>
-  )
+    return (
+        <Box {...getRootProps()}
+             w={'100%'}
+             textAlign={'center'}
+             border={'dashed'}
+             borderColor={'gray.200'}
+             borderRadius={'3xl'}
+             p={6}
+             rounded={'md'}>
+            <input {...getInputProps()} />
+            {
+                isDragActive ?
+                    <p>Drop the picture here ...</p> :
+                    <p>Drag 'n' drop picture here, or click to select picture</p>
+            }
+        </Box>
+    )
 }
 
 // And now we can use these
-const UpdateCustomerForm = ({ fetchCustomers, initialValues, customerId }) => {
+const UpdateCustomerForm = ({fetchCustomers, initialValues, customerId}) => {
     return (
         <>
-            <VStack spacing={5} mb={5} align="stretch">
-                <Image 
-                 borderRadius={"full"}
-                    boxSize={"150px"}
-                    objectFit={"cover"}
-                    textAlign={"center"}
+            <VStack spacing={'5'} mb={'5'}>
+                <Image
+                    borderRadius={'full'}
+                    boxSize={'150px'}
+                    objectFit={'cover'}
                     src={customerProfilePictureUrl(customerId)}
-                    alt="Customer Profile Image"
-                     />
-                <MyDropzone customerId={customerId} />
+                />
+                <MyDropzone
+                    customerId={customerId}
+                    fetchCustomers={fetchCustomers}
+                />
             </VStack>
             <Formik
                 initialValues={initialValues}
@@ -105,13 +102,13 @@ const UpdateCustomerForm = ({ fetchCustomers, initialValues, customerId }) => {
                             )
                             fetchCustomers();
                         }).catch(err => {
-                            console.log(err);
-                            errorNotification(
-                                err.code,
-                                err.response.data.message
-                            )
+                        console.log(err);
+                        errorNotification(
+                            err.code,
+                            err.response.data.message
+                        )
                     }).finally(() => {
-                         setSubmitting(false);
+                        setSubmitting(false);
                     })
                 }}
             >
